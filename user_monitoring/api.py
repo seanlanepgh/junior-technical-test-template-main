@@ -33,7 +33,6 @@ def handle_user_event() -> dict:
         # Create a new UserEvent instance
         current_app.logger.info("Inserting new user event")
         insert_user_event(event_data)
-        
         alerts = get_Alerts(event_data)
         print(alerts)
         alertResultStruct = {'user_id': user_id ,'alert': alerts["alert_boolean"], 'alert_codes': alerts["alert_codes"]}
@@ -43,8 +42,6 @@ def handle_user_event() -> dict:
     except Exception as e:
         current_app.logger.error(f"Error handling user event: {e}")
         return {"error": "Internal server error"}, 500
-    
-    return {}
 
 def validate_event_data(event_data):
     """
@@ -93,7 +90,8 @@ def insert_user_event(event_data):
         event_type=event_type,
         amount=amount,
         event_time=event_time,
-        user_id=user_id
+        user_id=user_id,
+        created_at= datetime.now()
     )
     db.session.add(user_event)
     db.session.commit()
@@ -105,10 +103,54 @@ def insert_user_event(event_data):
 def get_Alerts(event_data):
     alert_codes =[]
     alert_boolean = False
+    events = get_user_events(event_data["user_id"])
+    print(events)
+    # Check for three consecutive withdrawals
+    consecutive_withdrawals = 0
+    for event in events[::-1]:  # Iterate over events in reverse order
+        if event["event_type"] == "withdraw":
+            consecutive_withdrawals += 1
+        else:
+            break
+
+    if consecutive_withdrawals >= 3:
+        alert_codes.append(30)
+        
+    # Check for large withdrawal amount
     # Needed to convert amount string to float
     if event_data["type"] == "withdraw" and float(event_data["amount"]) > 100:
         alert_codes.append(1100)
     if alert_codes:
         alert_boolean = True
+        
+    
     alertStruct = {'alert_boolean': alert_boolean, 'alert_codes': alert_codes}
     return alertStruct
+# This would be a endpoint in a real application
+def get_user_events(user_id):
+    """
+    Retrieve all user events for a given user ID.
+
+    Args:
+        user_id (int): The ID of the user.
+
+    Returns:
+        list: A list of UserEvent objects.
+    """
+    try:
+        events = UserEvent.query.filter_by(user_id=user_id).all()
+        event_list = [
+            {
+                "id": event.id,
+                "event_type": event.event_type,
+                "amount": event.amount,
+                "event_time": event.event_time,
+                "user_id": event.user_id
+            }
+            for event in events
+        ]
+        return event_list
+
+    except Exception as e:
+        current_app.logger.error(f"Error retrieving user events: {e}")
+        return {"error": "Internal server error"}, 500
