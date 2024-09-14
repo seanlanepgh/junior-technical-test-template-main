@@ -1,17 +1,19 @@
 from flask import Blueprint, request, current_app
 from user_monitoring.models import User, UserEvent
-from datetime import datetime,timedelta
+from datetime import datetime, timedelta
 from user_monitoring.db import db
+
 api = Blueprint("api", __name__)
 
 # This api would need some authentication and authorization
 # So not just anyone or any user can use the api
 
+
 @api.post("/event")
 def handle_user_event() -> dict:
     current_app.logger.info("Handling user event")
     event_data = request.get_json()
-    
+
     # Validate the event data
     is_valid, missing_fields = validate_event_data(event_data)
     if not is_valid:
@@ -21,7 +23,7 @@ def handle_user_event() -> dict:
     event_type = event_data["type"]
     if event_type not in ["deposit", "withdraw"]:
         return {"error": "Invalid event type. Must be 'deposit' or 'withdraw'."}, 400
-    
+
     user_id = event_data["user_id"]
     try:
         # Check if the user exists
@@ -34,39 +36,51 @@ def handle_user_event() -> dict:
         current_app.logger.info("Inserting new user event")
         insert_user_event(event_data)
         alerts = get_Alerts(event_data)
-        alertResultStruct = {'user_id': user_id ,'alert': alerts["alert_boolean"], 'alert_codes': alerts["alert_codes"]}
+        alertResultStruct = {
+            "user_id": user_id,
+            "alert": alerts["alert_boolean"],
+            "alert_codes": alerts["alert_codes"],
+        }
         return alertResultStruct
-    
+
     except Exception as e:
         current_app.logger.error(f"Error handling user event: {e}")
         return {"error": "Internal server error"}, 500
 
+
 def validate_event_data(event_data):
     """
     Validate the incoming event data.
-    
+
     Args:
         event_data (dict): The event data dictionary.
-        
+
     Returns:
         tuple: A tuple containing a boolean indicating if the data is valid,
                and a list of missing fields (if any).
     """
     required_fields = ["type", "amount", "user_id", "time"]
-    missing_fields = [field for field in required_fields if field not in event_data or not event_data[field]]
+    missing_fields = [
+        field
+        for field in required_fields
+        if field not in event_data or not event_data[field]
+    ]
     return not missing_fields, missing_fields
+
 
 def get_user(user_id):
     """
     Retrieve a user from the database by ID.
-    
+
     Args:
         user_id (int): The ID of the user.
-        
+
     Returns:
         User: The user object, or None if not found.
     """
     return User.query.get(user_id)
+
+
 def insert_user_event(event_data):
     """
     Insert a new user event into the database.
@@ -89,14 +103,15 @@ def insert_user_event(event_data):
         amount=amount,
         event_time=event_time,
         user_id=user_id,
-        created_at= datetime.now()
+        created_at=datetime.now(),
     )
     db.session.add(user_event)
     db.session.commit()
     return user_event
 
-# Get Alerts 
-# Need to return an array of codes and boolean 
+
+# Get Alerts
+# Need to return an array of codes and boolean
 # Array of codes could be a enum to improve readable and allow for more codes in the future
 def get_Alerts(event_data):
     """
@@ -108,18 +123,18 @@ def get_Alerts(event_data):
     Returns:
         dict: A dictionary containing the alert status and alert codes.
     """
-    alert_codes =[]
+    alert_codes = []
     alert_boolean = False
     events = get_user_events(event_data["user_id"])
     # Check for three consecutive withdrawals
     alertCode = consecutive_withdrawals(events)
-    if(alertCode is not None):
+    if alertCode is not None:
         alert_codes.append(alertCode)
     # Check for three consecutive deposits where each one is larger
-    alertCode = consecutive_deposits(events) 
-    if(alertCode is not None):
+    alertCode = consecutive_deposits(events)
+    if alertCode is not None:
         alert_codes.append(alertCode)
-    
+
     # Check if total deposit amount exceeds $200 within 30 seconds
     if event_data["type"] == "deposit" and check_deposit_amount_within_time(events):
         alert_codes.append(123)
@@ -130,10 +145,11 @@ def get_Alerts(event_data):
         alert_codes.append(1100)
     if alert_codes:
         alert_boolean = True
-        
-    
-    alertStruct = {'alert_boolean': alert_boolean, 'alert_codes': alert_codes}
+
+    alertStruct = {"alert_boolean": alert_boolean, "alert_codes": alert_codes}
     return alertStruct
+
+
 # This would be a endpoint in a real application
 def get_user_events(user_id):
     """
@@ -154,7 +170,7 @@ def get_user_events(user_id):
                 "amount": event.amount,
                 "event_time": event.event_time,
                 "user_id": event.user_id,
-                "created_at": event.created_at
+                "created_at": event.created_at,
             }
             for event in events
         ]
@@ -163,6 +179,8 @@ def get_user_events(user_id):
     except Exception as e:
         current_app.logger.error(f"Error retrieving user events: {e}")
         return {"error": "Internal server error"}, 500
+
+
 def consecutive_withdrawals(events):
     """
     Check for consecutive deposits where each one is larger than the previous one.
@@ -185,6 +203,8 @@ def consecutive_withdrawals(events):
     print(consecutive_withdrawals)
     if consecutive_withdrawals >= 3:
         return 30
+
+
 def consecutive_deposits(events):
     """
     Check for consecutive withdrawals.
@@ -202,8 +222,8 @@ def consecutive_deposits(events):
     for event in events[::-1]:  # Iterate over events in reverse order
         if event["event_type"] == "deposit":
             current_amount = event["amount"]
-            print("current:" ,current_amount)
-            print("previous:",previous_amount)
+            print("current:", current_amount)
+            print("previous:", previous_amount)
             if current_amount > previous_amount:
                 consecutive_larger_deposits += 1
                 previous_amount = current_amount
@@ -222,28 +242,27 @@ def consecutive_deposits(events):
         if consecutive_larger_deposits >= 3:
             return 300
             break
+
+
 def check_deposit_amount_within_time(events, amount_threshold=200, time_window=30):
-        """
-        Check if the total amount deposited in events exceeds a specified threshold within a given time window.
+    """
+    Check if the total amount deposited in events exceeds a specified threshold within a given time window.
 
-        Args:
-            events (list): A list of dictionaries containing the event details.
-            amount_threshold (float): The maximum total deposit amount allowed within the time window.
-            time_window (int): The time window in seconds.
+    Args:
+        events (list): A list of dictionaries containing the event details.
+        amount_threshold (float): The maximum total deposit amount allowed within the time window.
+        time_window (int): The time window in seconds.
 
-        Returns:
-            bool: True if the total deposit amount exceeds the threshold within the time window, False otherwise.
-        """
-        total_deposit_amount = 0
-        end_time = datetime.now()
-        start_time = end_time - timedelta(seconds=time_window)
-        for event in events[::-1]:  # Iterate over events in reverse order
-            if event["event_type"] == "deposit":
-                event_created_at = event["created_at"]
-                if start_time <= event_created_at <= end_time:
-                    total_deposit_amount += event["amount"]
+    Returns:
+        bool: True if the total deposit amount exceeds the threshold within the time window, False otherwise.
+    """
+    total_deposit_amount = 0
+    end_time = datetime.now()
+    start_time = end_time - timedelta(seconds=time_window)
+    for event in events[::-1]:  # Iterate over events in reverse order
+        if event["event_type"] == "deposit":
+            event_created_at = event["created_at"]
+            if start_time <= event_created_at <= end_time:
+                total_deposit_amount += event["amount"]
 
-        return total_deposit_amount > amount_threshold
-
-
-
+    return total_deposit_amount > amount_threshold
