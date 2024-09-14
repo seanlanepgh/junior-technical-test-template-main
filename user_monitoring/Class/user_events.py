@@ -146,14 +146,15 @@ class UserEvents:
     @staticmethod
     def consecutive_withdrawals(events):
         """
-        Check for consecutive deposits where each one is larger than the previous one.
+        Check for consecutive withdrawals.
 
         Args:
             events (list): A list of dictionaries containing the event details.
 
         Returns:
-            int: The number of consecutive larger deposits.
+            int: The number of consecutive withdrawals.
         """
+
         # Check for three consecutive withdrawals
         consecutive_withdrawals = 0
         for event in events[::-1]:  # Iterate over events in reverse order
@@ -167,19 +168,20 @@ class UserEvents:
     @staticmethod
     def consecutive_deposits(events):
         """
-        Check for consecutive withdrawals.
+        Check for consecutive deposits where each one is larger than the previous one.
 
         Args:
             events (list): A list of dictionaries containing the event details.
 
         Returns:
-            int: The number of consecutive withdrawals.
+            int: The number of consecutive larger deposits.
         """
         # Check for three consecutive deposits where each one is larger
         consecutive_larger_deposits = 0
         previous_amount = 0
 
-        # Remove withdraw deposits from the events list
+        # Remove withdraw events from the events list
+        # I originally used a boolean to skip over the withdraw events
         filtered_events = [
             event for event in events if event["event_type"] == "deposit"
         ]
