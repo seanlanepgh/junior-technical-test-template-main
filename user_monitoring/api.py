@@ -1,6 +1,6 @@
 from flask import Blueprint, request, current_app
 from user_monitoring.models import User, UserEvent
-123from datetime import datetime,timedelta
+from datetime import datetime,timedelta
 from user_monitoring.db import db
 api = Blueprint("api", __name__)
 
