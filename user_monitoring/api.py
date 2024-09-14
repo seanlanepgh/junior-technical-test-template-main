@@ -1,6 +1,6 @@
 from flask import Blueprint, request, current_app
 from user_monitoring.models import User, UserEvent
-from datetime import datetime
+123from datetime import datetime,timedelta
 from user_monitoring.db import db
 api = Blueprint("api", __name__)
 
@@ -119,6 +119,11 @@ def get_Alerts(event_data):
     alertCode = consecutive_deposits(events) 
     if(alertCode is not None):
         alert_codes.append(alertCode)
+    
+    # Check if total deposit amount exceeds $200 within 30 seconds
+    if event_data["type"] == "deposit" and check_deposit_amount_within_time(events):
+        alert_codes.append(123)
+
     # Check for large withdrawal amount
     # Needed to convert amount string to float
     if event_data["type"] == "withdraw" and float(event_data["amount"]) > 100:
@@ -148,7 +153,8 @@ def get_user_events(user_id):
                 "event_type": event.event_type,
                 "amount": event.amount,
                 "event_time": event.event_time,
-                "user_id": event.user_id
+                "user_id": event.user_id,
+                "created_at": event.created_at
             }
             for event in events
         ]
@@ -216,5 +222,28 @@ def consecutive_deposits(events):
         if consecutive_larger_deposits >= 3:
             return 300
             break
+def check_deposit_amount_within_time(events, amount_threshold=200, time_window=30):
+        """
+        Check if the total amount deposited in events exceeds a specified threshold within a given time window.
+
+        Args:
+            events (list): A list of dictionaries containing the event details.
+            amount_threshold (float): The maximum total deposit amount allowed within the time window.
+            time_window (int): The time window in seconds.
+
+        Returns:
+            bool: True if the total deposit amount exceeds the threshold within the time window, False otherwise.
+        """
+        total_deposit_amount = 0
+        end_time = datetime.now()
+        start_time = end_time - timedelta(seconds=time_window)
+        for event in events[::-1]:  # Iterate over events in reverse order
+            if event["event_type"] == "deposit":
+                event_created_at = event["created_at"]
+                if start_time <= event_created_at <= end_time:
+                    total_deposit_amount += event["amount"]
+
+        return total_deposit_amount > amount_threshold
+
 
 
