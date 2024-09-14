@@ -34,9 +34,7 @@ def handle_user_event() -> dict:
         current_app.logger.info("Inserting new user event")
         insert_user_event(event_data)
         alerts = get_Alerts(event_data)
-        print(alerts)
         alertResultStruct = {'user_id': user_id ,'alert': alerts["alert_boolean"], 'alert_codes': alerts["alert_codes"]}
-        print(alertResultStruct)
         return alertResultStruct
     
     except Exception as e:
@@ -101,21 +99,26 @@ def insert_user_event(event_data):
 # Need to return an array of codes and boolean 
 # Array of codes could be a enum to improve readable and allow for more codes in the future
 def get_Alerts(event_data):
+    """
+    Get alerts based on the event data and user's event history.
+
+    Args:
+        event_data (dict): A dictionary containing the event data.
+
+    Returns:
+        dict: A dictionary containing the alert status and alert codes.
+    """
     alert_codes =[]
     alert_boolean = False
     events = get_user_events(event_data["user_id"])
-    print(events)
     # Check for three consecutive withdrawals
-    consecutive_withdrawals = 0
-    for event in events[::-1]:  # Iterate over events in reverse order
-        if event["event_type"] == "withdraw":
-            consecutive_withdrawals += 1
-        else:
-            break
-
-    if consecutive_withdrawals >= 3:
-        alert_codes.append(30)
-        
+    alertCode = consecutive_withdrawals(events)
+    if(alertCode is not None):
+        alert_codes.append(alertCode)
+    # Check for three consecutive deposits where each one is larger
+    alertCode = consecutive_deposits(events) 
+    if(alertCode is not None):
+        alert_codes.append(alertCode)
     # Check for large withdrawal amount
     # Needed to convert amount string to float
     if event_data["type"] == "withdraw" and float(event_data["amount"]) > 100:
@@ -154,3 +157,64 @@ def get_user_events(user_id):
     except Exception as e:
         current_app.logger.error(f"Error retrieving user events: {e}")
         return {"error": "Internal server error"}, 500
+def consecutive_withdrawals(events):
+    """
+    Check for consecutive deposits where each one is larger than the previous one.
+
+    Args:
+        events (list): A list of dictionaries containing the event details.
+
+    Returns:
+        int: The number of consecutive larger deposits.
+    """
+    # Check for three consecutive withdrawals
+    consecutive_withdrawals = 0
+    for event in events[::-1]:  # Iterate over events in reverse order
+        if event["event_type"] == "withdraw":
+            consecutive_withdrawals += 1
+            print(event["event_type"])
+            print(consecutive_withdrawals)
+        else:
+            break
+    print(consecutive_withdrawals)
+    if consecutive_withdrawals >= 3:
+        return 30
+def consecutive_deposits(events):
+    """
+    Check for consecutive withdrawals.
+
+    Args:
+        events (list): A list of dictionaries containing the event details.
+
+    Returns:
+        int: The number of consecutive withdrawals.
+    """
+    # Check for three consecutive deposits where each one is larger
+    consecutive_larger_deposits = 0
+    previous_amount = 0
+    ignore_withdrawals = False
+    for event in events[::-1]:  # Iterate over events in reverse order
+        if event["event_type"] == "deposit":
+            current_amount = event["amount"]
+            print("current:" ,current_amount)
+            print("previous:",previous_amount)
+            if current_amount > previous_amount:
+                consecutive_larger_deposits += 1
+                previous_amount = current_amount
+                ignore_withdrawals = False
+            else:
+                consecutive_larger_deposits = 1
+                previous_amount = current_amount
+                ignore_withdrawals = False
+        elif ignore_withdrawals:
+            continue
+        else:
+            consecutive_larger_deposits = 0
+            ignore_withdrawals = True
+        print(event["id"])
+        print(consecutive_larger_deposits)
+        if consecutive_larger_deposits >= 3:
+            return 300
+            break
+
+
