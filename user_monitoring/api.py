@@ -17,6 +17,10 @@ def handle_user_event() -> dict:
     if not is_valid:
         error_message = f"Missing required parameters: {', '.join(missing_fields)}"
         return {"error": error_message}, 400
+    # Need to add some more strict type validation for all fields not just type
+    event_type = event_data["type"]
+    if event_type not in ["deposit", "withdraw"]:
+        return {"error": "Invalid event type. Must be 'deposit' or 'withdraw'."}, 400
     
     user_id = event_data["user_id"]
     try:
@@ -29,6 +33,12 @@ def handle_user_event() -> dict:
         # Create a new UserEvent instance
         current_app.logger.info("Inserting new user event")
         insert_user_event(event_data)
+        
+        alerts = get_Alerts(event_data)
+        print(alerts)
+        alertResultStruct = {'user_id': user_id ,'alert': alerts["alert_boolean"], 'alert_codes': alerts["alert_codes"]}
+        print(alertResultStruct)
+        return alertResultStruct
     
     except Exception as e:
         current_app.logger.error(f"Error handling user event: {e}")
@@ -88,3 +98,17 @@ def insert_user_event(event_data):
     db.session.add(user_event)
     db.session.commit()
     return user_event
+
+# Get Alerts 
+# Need to return an array of codes and boolean 
+# Array of codes could be a enum to improve readable and allow for more codes in the future
+def get_Alerts(event_data):
+    alert_codes =[]
+    alert_boolean = False
+    # Needed to convert amount string to float
+    if event_data["type"] == "withdraw" and float(event_data["amount"]) > 100:
+        alert_codes.append(1100)
+    if alert_codes:
+        alert_boolean = True
+    alertStruct = {'alert_boolean': alert_boolean, 'alert_codes': alert_codes}
+    return alertStruct
