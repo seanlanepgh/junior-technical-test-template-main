@@ -108,7 +108,7 @@ class UserEvents:
         if event_data[
             "type"
         ] == "deposit" and UserEvents.check_deposit_amount_within_time(events):
-            alert_codes.append(AlertCodes.DEPOSIT_AMOUNT_EXCEEDED_WITHIN_TIME)
+            alert_codes.append(AlertCodes.DEPOSIT_AMOUNT_EXCEEDED_WITHIN_TIME.value)
 
         if alert_codes:
             alert_boolean = True
