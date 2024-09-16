@@ -81,8 +81,6 @@ def test_alert_three_consecutive_withdrawals():
     requests.post(url, json=event_data)
     requests.post(url, json=event_data)
     response = requests.post(url, json=event_data)
-    print(response)
-    print(response.status_code)
     assert response.status_code == 200
     data = response.json()
     assert data["alert"] is True
@@ -105,13 +103,10 @@ def test_alert_three_consecutive_larger_deposits():
 
     event_data["amount"] = 150.0
     response = requests.post(url, json=event_data)
-
-    print(response)
-    print(response.status_code)
     assert response.status_code == 200
     data = response.json()
     assert data["alert"] is True
-    # assert 300 in data["alert_codes"]
+    assert 300 in data["alert_codes"]
 
 
 def test_alert_deposit_amount_exceeded_within_time():
@@ -120,7 +115,7 @@ def test_alert_deposit_amount_exceeded_within_time():
         "type": "deposit",
         "amount": 100.0,
         "user_id": 1,
-        "time": "2023-05-01T12:00:00Z",
+        "time": 10,
     }
     url = f"{BASE_URL}/event"
     requests.post(url, json=event_data)
@@ -130,9 +125,7 @@ def test_alert_deposit_amount_exceeded_within_time():
     assert response.status_code == 200
     data = response.json()
     assert data["alert"] is True
-
-
-# assert 123 in data["alert_codes"]
+    assert 123 in data["alert_codes"]
 
 
 def test_alert_user_not_found():
@@ -181,3 +174,58 @@ def test_create_withdraw_event():
     assert (
         response.status_code == 200
     )  # Assuming the API returns a 200 Created for successful event creation
+
+
+def test_alert_three_consecutive_larger_deposits_with_withdraw():
+    # Create three consecutive larger deposit events
+    event_data = {
+        "type": "deposit",
+        "amount": 10.0,
+        "user_id": 1,
+        "time": 10,
+    }
+
+    withdraw_event_data = {
+        "type": "deposit",
+        "amount": 50.0,
+        "user_id": 1,
+        "time": 10,
+    }
+    url = f"{BASE_URL}/event"
+    requests.post(url, json=event_data)
+
+    event_data["amount"] = 30.0
+    requests.post(url, json=event_data)
+    event_data["amount"] = 40.0
+    requests.post(url, json=withdraw_event_data)
+    response = requests.post(url, json=event_data)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["alert"] is True
+    assert 300 in data["alert_codes"]
+
+
+def test_alert_deposit_amount_exceeded_within_time_with_withdraw():
+    # Create multiple deposit events within a short time window
+    event_data = {
+        "type": "deposit",
+        "amount": 100.0,
+        "user_id": 1,
+        "time": 10,
+    }
+    withdraw_event_data = {
+        "type": "deposit",
+        "amount": 50.0,
+        "user_id": 1,
+        "time": 10,
+    }
+    url = f"{BASE_URL}/event"
+    requests.post(url, json=event_data)
+    requests.post(url, json=withdraw_event_data)
+    requests.post(url, json=event_data)
+    response = requests.post(url, json=event_data)
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["alert"] is True
+    assert 123 in data["alert_codes"]
